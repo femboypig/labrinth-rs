@@ -317,4 +317,84 @@ a:hover {
         padding: 20px 25px;
         font-size: 18px;
     }
+}
+
+/* Rules list numbering */
+.rules-list {
+    counter-reset: section;
+    list-style-type: none;
+    padding-left: 0;
+    margin-left: 0;
+    margin-bottom: 25px;
+}
+
+.rules-list li {
+    position: relative;
+    padding-left: 60px; /* Default padding */
+    margin-bottom: 15px;
+    counter-increment: section;
+}
+
+/* Dynamic padding based on number length */
+.rules-list li[data-num-length="1"] {
+    padding-left: 45px;
+}
+
+.rules-list li[data-num-length="2"] {
+    padding-left: 55px;
+}
+
+.rules-list li[data-num-length="3"] {
+    padding-left: 65px;
+}
+
+.rules-list li[data-num-length="4"] {
+    padding-left: 75px;
+}
+
+.rules-list li[data-num-length="5"] {
+    padding-left: 85px;
+}
+
+.rules-list li::before {
+    content: attr(data-num);
+    display: inline-block;
+    position: absolute;
+    left: 0;
+    font-weight: bold;
+    text-align: right;
+    padding-right: 15px;
+    color: #555;
+    font-family: 'Consolas', monospace;
+}
+
+/* Dynamic width based on number length */
+.rules-list li[data-num-length="1"]::before {
+    min-width: 30px;
+}
+
+.rules-list li[data-num-length="2"]::before {
+    min-width: 40px;
+}
+
+.rules-list li[data-num-length="3"]::before {
+    min-width: 50px;
+}
+
+.rules-list li[data-num-length="4"]::before {
+    min-width: 60px;
+}
+
+.rules-list li[data-num-length="5"]::before {
+    min-width: 70px;
+}
+
+/* Add a subtle hover effect */
+.rules-list li:hover::before {
+    color: #ffa634;
+}
+
+/* Hide original numbers */
+.rules-list li {
+    list-style-type: none;
 } 

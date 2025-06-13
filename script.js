@@ -5,6 +5,16 @@ document.addEventListener("DOMContentLoaded", function () {
   const container = document.querySelector(".container");
   const footer = document.querySelector(".site-footer");
 
+  // Set data attributes for number length to handle dynamic padding
+  document.querySelectorAll(".rules-list li").forEach((item) => {
+    const numValue = item.getAttribute("data-num");
+    if (numValue) {
+      // Count the number of characters in the numbering
+      const numLength = numValue.length;
+      item.setAttribute("data-num-length", numLength);
+    }
+  });
+
   // Hide content until animation completes
   container.style.display = "block";
   footer.style.display = "block";
