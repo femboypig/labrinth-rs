@@ -32,6 +32,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
       // Start the content animations after the overlay is gone
       initializeContentAnimations();
+      
+      // Fetch mods data after animations complete
+      fetchModsData();
     }, 800); // Match transition time from CSS
   }, 3000); // 3 seconds for the spinning animation
 
@@ -58,6 +61,227 @@ document.addEventListener("DOMContentLoaded", function () {
         });
       }, 250);
     }, 200);
+  }
+
+  // Fetch mods data from GitHub
+  function fetchModsData() {
+    fetch('https://raw.githubusercontent.com/femboypig/labrinth-rs/refs/heads/main/mods.json')
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Network response was not ok');
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (data && data.mods) {
+          displayModsTable(data.mods);
+        }
+      })
+      .catch(error => {
+        console.error('Error fetching mods data:', error);
+        const modsTableContainer = document.querySelector(".mods-table-container");
+        if (modsTableContainer) {
+          modsTableContainer.innerHTML = '<p class="error-message">Ошибка загрузки данных о модах. Пожалуйста, попробуйте позже.</p>';
+        }
+      });
+  }
+
+  // Create and display mods table
+  function displayModsTable(mods) {
+    const modsTableContainer = document.querySelector(".mods-table-container");
+    if (!modsTableContainer) return;
+
+    // Create table structure
+    const table = document.createElement('table');
+    table.className = 'loaders-table';
+    
+    // Create header
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+      <tr>
+        <th>Название</th>
+        <th>Статус</th>
+      </tr>
+    `;
+    table.appendChild(thead);
+    
+    // Create table body
+    const tbody = document.createElement('tbody');
+    
+    // Filter out mods with state "hide"
+    const visibleMods = mods.filter(mod => mod.state !== 'hide');
+    
+    // Sort mods first by status priority (yes, warn, no) and then by name
+    const statusPriority = { 'yes': 1, 'warn': 2, 'no': 3 };
+    visibleMods.sort((a, b) => {
+      // First sort by status priority
+      const statusA = statusPriority[a.state] || 4; // Unknown status gets lowest priority
+      const statusB = statusPriority[b.state] || 4;
+      
+      if (statusA !== statusB) {
+        return statusA - statusB;
+      }
+      
+      // Then sort alphabetically by name
+      return a.name.localeCompare(b.name);
+    });
+    
+    // Track notes and their occurrences
+    const notesMap = new Map(); // Map to store unique notes and their assigned numbers
+    const uniqueNotes = new Map(); // Map to store unique notes and their reference numbers
+    
+    // First pass: identify all unique notes and assign numbers
+    let noteCounter = 1;
+    visibleMods.forEach(mod => {
+      if (mod.notes) {
+        const noteText = mod.notes.ru || mod.notes.en || '';
+        if (!notesMap.has(noteText)) {
+          notesMap.set(noteText, noteCounter++);
+        }
+      }
+    });
+    
+    // Second pass: add mods to table and collect note references
+    visibleMods.forEach(mod => {
+      const tr = document.createElement('tr');
+      tr.className = mod.state === 'warn' ? 'mod-warning' : '';
+      
+      // Name column with URL link
+      const tdName = document.createElement('td');
+      const modLink = document.createElement('a');
+      modLink.href = mod.url;
+      modLink.target = '_blank';
+      modLink.textContent = mod.name;
+      
+      // Add note reference if mod has notes
+      if (mod.notes) {
+        const noteText = mod.notes.ru || mod.notes.en || '';
+        const noteNumber = notesMap.get(noteText);
+        
+        const noteRef = document.createElement('sup');
+        noteRef.className = 'note-ref';
+        noteRef.textContent = noteNumber;
+        noteRef.title = noteText;
+        modLink.appendChild(noteRef);
+        
+        // Add this reference to our tracking
+        if (!uniqueNotes.has(noteText)) {
+          uniqueNotes.set(noteText, [noteNumber]);
+        } else {
+          const numbers = uniqueNotes.get(noteText);
+          if (!numbers.includes(noteNumber)) {
+            numbers.push(noteNumber);
+          }
+        }
+      }
+      
+      tdName.appendChild(modLink);
+      
+      // Status column with icon
+      const tdStatus = document.createElement('td');
+      tdStatus.className = 'mod-status';
+      
+      // Handle all possible state values
+      switch(mod.state) {
+        case 'yes':
+          tdStatus.innerHTML = '✅';
+          tdStatus.title = 'Разрешено';
+          break;
+        case 'warn':
+          tdStatus.innerHTML = '⚠️';
+          tdStatus.title = 'Разрешено с ограничениями';
+          break;
+        case 'no':
+          tdStatus.innerHTML = '❌';
+          tdStatus.title = 'Запрещено';
+          break;
+        default:
+          // Show the state value if it's not one of the expected ones
+          tdStatus.innerHTML = mod.state || 'N/A';
+          break;
+      }
+      
+      // Add columns to the row
+      tr.appendChild(tdName);
+      tr.appendChild(tdStatus);
+      
+      // Add row to table body
+      tbody.appendChild(tr);
+    });
+    
+    table.appendChild(tbody);
+    
+    // Create notes container
+    const notesContainer = document.createElement('div');
+    notesContainer.className = 'mods-notes-container';
+    
+    // Format and add unique notes with ranges
+    if (uniqueNotes.size > 0) {
+      // Convert the unique notes to an array for sorting
+      const notesArray = Array.from(uniqueNotes.entries()).map(([text, numbers]) => {
+        // Sort the numbers for sequential detection
+        numbers.sort((a, b) => a - b);
+        return { text, numbers };
+      });
+      
+      // Sort the notes by the first number in each range
+      notesArray.sort((a, b) => a.numbers[0] - b.numbers[0]);
+      
+      notesArray.forEach(note => {
+        const { text, numbers } = note;
+        
+        // Format the numbers as ranges where possible
+        const formattedNumbers = formatNumbersAsRanges(numbers);
+        
+        // Create the note element
+        const noteItem = document.createElement('div');
+        noteItem.className = 'mod-note';
+        noteItem.innerHTML = `<sup>${formattedNumbers}</sup> ${text}`;
+        notesContainer.appendChild(noteItem);
+      });
+    }
+    
+    // Helper function to format numbers as ranges
+    function formatNumbersAsRanges(numbers) {
+      if (!numbers || numbers.length === 0) return '';
+      
+      const ranges = [];
+      let rangeStart = numbers[0];
+      let rangeEnd = rangeStart;
+      
+      for (let i = 1; i < numbers.length; i++) {
+        if (numbers[i] === rangeEnd + 1) {
+          // Continue the current range
+          rangeEnd = numbers[i];
+        } else {
+          // End the current range and start a new one
+          if (rangeStart === rangeEnd) {
+            ranges.push(`${rangeStart}`);
+          } else {
+            ranges.push(`${rangeStart}-${rangeEnd}`);
+          }
+          rangeStart = rangeEnd = numbers[i];
+        }
+      }
+      
+      // Add the last range
+      if (rangeStart === rangeEnd) {
+        ranges.push(`${rangeStart}`);
+      } else {
+        ranges.push(`${rangeStart}-${rangeEnd}`);
+      }
+      
+      return ranges.join(', ');
+    }
+    
+    // Clear and update the container
+    modsTableContainer.innerHTML = '';
+    modsTableContainer.appendChild(table);
+    
+    // Add notes below the table if there are any
+    if (uniqueNotes.size > 0) {
+      modsTableContainer.appendChild(notesContainer);
+    }
   }
 
   // Smooth scrolling for anchor links
